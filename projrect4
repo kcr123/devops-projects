@@ -1,0 +1,135 @@
+Simple DevOps Project - 4
+In this project, we will be see how to use Git, Jenkins, Ansible, DockerHub, Docker to DEPLOY on a docker container.,
+
+Follow this project in Youtube
+
+
+
+PreRequisites
+Jenkins - Get help here
+Ansible - Get help here
+Setup ansible client and install docker. here
+Docker Hub account
+Previous DevOps projects:
+Simple DevOps project-1 here
+Simple DevOps project-2 here
+Simple DevOps project-3 here
+In part-01 we create Docker image on ansible server through Jenkins job and pushed it onto DockerHub.
+
+Part-01 : Create an docker image
+Login to Jenkins console
+
+Create Jenkins job, Fill the following details,
+
+Source Code Management:
+Repository : https://github.com/ValaxyTech/hello-world.git
+Branches to build : */master
+Build:
+Root POM:pom.xml
+Goals and options : clean install package
+Post Steps
+Send files or execute commands over SSH
+
+Name: ansible_server
+Source files	: webapp/target/*.war
+Remove prefix	: webapp/target
+Remote directory	: //opt//docker
+Send files or execute commands over SSH
+
+Name: ansible_server
+Source files	: Dockerfile
+Remote directory	: //opt//docker
+Exec Command:
+cd /opt/docker
+docker build -t valaxy_demo .
+docker tag valaxy_demo valaxy/valaxy_demo
+docker push valaxy/valaxy_demo
+docker rmi valaxy_demo valaxy/valaxy_demo
+Login to Docker host and check images and containers. (no images and containers)
+
+login to docker hub and check. shouldn't find images with for valaxy_demo
+
+Execute Jenkins job
+
+check images in Docker hub. Now you could able to see new images pushed to Valaxy Docker_Hub
+
+Troubleshooting:
+Docker should be installed on ansible server
+Should login to "docker hub" on ansible server
+ansadmin user should be part of docker group
+In Part-02 we create create_docker_container.yml playbook. this get intiated by jenkins job, run by ansible and exected on dokcer_host
+
+Part-02 : Deploy Containers
+Write a yml file to create a container (file name : create_docker_container.yml)
+
+  ---
+  - hosts: web-servers
+    become: true
+    tasks:
+     - name: stop previous version docker
+       shell: docker stop valaxy_demo
+     - name: remove stopped container
+       shell: docker rm -f valaxy_demo	  
+     - name: remove docker images
+       shell: docker image rm -f valaxy/valaxy_demo
+       
+     - name: create docker image
+       shell: docker run -d --name valaxy_demo -p 8090:8080 valaxy/valaxy_demo
+Add this script to Jenkins job.
+
+Chose "configure" to modify your jenkins job.
+Under post build actions
+Send files or execute commands over SSH
+Exec Command:
+   cd /opt/playbooks
+   ansible-playbook create_docker_container.yml
+Execute Jenkins job.
+
+You could see a new container on your docker host. can able access it from browser on port 8090
+
+Troubleshooting: Makesure you have opened required ports on AWS Security group for this server.
+
+In Part-03 we try to improvise to store docker images previous versions
+
+Part-03 : Deploy with Version Control Containers
+So for we used latest docker image to build a container, but what happens if latest version is not working?
+One easiest solution is, maintaining version for each build. This can be achieved by using environment variables.
+
+here we use 2 variables
+
+BUILD_ID - The current build id
+JOB_NAME - Name of the project of this build. This is the name you gave your job when you first set it up.
+for more info Please refer this URL
+
+Lets modify jenkins job which was created in Part-01 as below.
+
+Create Jenkins job
+Source Code Management:
+
+Repository : https://github.com/ValaxyTech/hello-world.git
+Branches to build : */master
+Build:
+
+Root POM:pom.xml
+Goals and options : clean install package
+Send files or execute commands over SSH
+
+Name: ansible_server
+Source files	: webapp/target/*.war
+Remove prefix	: webapp/target
+Remote directory	: //opt//docker
+Send files or execute commands over SSH
+
+Name: ansible_server
+Source files	: Dockerfile
+Remote directory	: //opt//docker
+cd /opt/docker
+docker build -t $JOB_NAME:v1.$BUILD_ID .
+docker tag $JOB_NAME:v1.$BUILD_ID valaxy/$JOB_NAME:v1.$BUILD_ID
+docker tag $JOB_NAME:v1.$BUILD_ID valaxy/$JOB_NAME:latest
+docker push valaxy/$JOB_NAME:v1.$BUILD_ID
+docker push valaxy/$JOB_NAME:latest
+docker rmi $JOB_NAME:v1.$BUILD_ID valaxy/$JOB_NAME:v1.$BUILD_ID
+valaxy/$JOB_NAME:latest
+References
+[1] - Jenkins Docs - Building Software Projects
